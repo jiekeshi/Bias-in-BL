@@ -46,14 +46,14 @@ def bug_reader(bug_report_path, code_base_path):
 
     return bug_data
 
-def mp_code_reader(code_base_path, storage_path):
+def mp_code_reader(code_base_pathd, storage_path):
 
-    Language.build_library(
-        os.path.join("./languages.so"),
-        [
-            '/home/tree-sitter-python'
-        ]
-    )
+    # Language.build_library(
+    #     os.path.join("./languages.so"),
+    #     [
+    #         '/home/tree-sitter-python'
+    #     ]
+    # )
 
     added_files, modified_files = filter_files(code_base_path, storage_path)
     if os.path.exists(os.path.join(storage_path, "code_data.json")):
@@ -177,7 +177,7 @@ def compute_similarity(text_data, bug_data, past_bugs):
     sims = index[dct.doc2bow(bug_content)]
     norm_sims = []
     for sim, lens in zip(sims, len_cont):
-        norm_sims.append(sim*1.0/(1 + math.exp(-6*(lens - min_len)/diff_len)))
+        norm_sims.append(sim*1.0/(1 + math.exp(-6*(lens - min_len)/(diff_len+1))))
 
     fix_files = []
     sim_bugs = []
@@ -267,7 +267,7 @@ if __name__ == "__main__":
     bias_1_not_mis = ["ambari", "bigtop", "cassandra", "hbase", "hive", "solr", "spark", "sqoop", "tez", "zookeeper"]
     for proj in bias_1_mis:
         bug_report_path = os.path.join("../../data/Bias_1_misclassified", proj, "bugs.xml")
-        code_base_path = os.path.join("./codes", proj)
+        code_base_path = os.path.join("../../data/codebase", proj)
         storage_path = os.path.join("./data/bias1_mis", proj)
         if not os.path.exists(os.path.join(storage_path, "code/")):
             os.makedirs(os.path.join(storage_path, "code/"))
