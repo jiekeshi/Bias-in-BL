@@ -155,7 +155,6 @@ def code_parser(code_cont):
 
     return code_cont + identifier
 
-
 def compute_similarity(text_data, bug_data):
     text_content = []
     file_names = []
