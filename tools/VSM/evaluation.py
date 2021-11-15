@@ -3,7 +3,7 @@ from prettytable import PrettyTable
 x = PrettyTable()
 x.field_names = ["Dataset", "Hit@1", "MRR", "MAP"]
 bias_1_mis = ["ambari", "solr", "spark"]
-bias_1_not_mis = ["ambari", "bigtop", "cassandra", "hbase", "hive", "solr", "spark", "sqoop", "tez", "zookeeper"]
+bias_1_not_mis = ["ambari", "solr", "spark", "bigtop", "cassandra", "hbase", "hive", "sqoop", "tez", "zookeeper"]
 for proj in bias_1_mis:
     with open("./data/bias1_mis/" + proj + "/results.json") as f:
         predictions = json.load(f)
