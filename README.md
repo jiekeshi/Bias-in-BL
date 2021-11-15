@@ -9,6 +9,7 @@ Enter into container, then install some packages:
 ```
 pip install gensim
 pip install tree_sitter
+pip install gdown
 ```
 
 Prepare datasets.
