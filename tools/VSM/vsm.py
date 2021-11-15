@@ -3,7 +3,6 @@ import re
 import time
 import json
 import spacy
-import argparse
 import subprocess
 import multiprocessing as mp
 import xml.etree.ElementTree as ET
@@ -241,53 +240,88 @@ def evaluation(results, storage_path):
 
 
 if __name__ == "__main__":
-    
-    parser = argparse.ArgumentParser(description="VSM for bug localization")
-    parser.add_argument("-bug", "--bug_report_path", help="Bug report path")
-    parser.add_argument("-code", "--code_base_path", help="Codebase directory")
-    parser.add_argument("-sp", "--storage_path", help="storage intermediate file")
-    args = parser.parse_args()
 
-    bug_report_path = args.bug_report_path
-    code_base_path = args.code_base_path
-    storage_path = args.storage_path
-    if not os.path.exists(os.path.join(storage_path, "code/")):
-        os.makedirs(os.path.join(storage_path, "code/"))
-    
-    results = {}
-
-    print("bug localization starting...")
-    
-    start_time = time.time()
-    print("read bug reports...")
-    bug_data = bug_reader(bug_report_path, code_base_path)
-    print("the time consuming is %f s" %(time.time() - start_time))
-
-    for bug_id, bug_rep in tqdm(bug_data.items()):
-        print("processing {} now...".format(bug_id))
-        cmd_1 = "cd " + code_base_path
-        cmd_2 = "git rev-list --all -n 1 --before=" + bug_data[bug_id]["fixdate"]
-
-        p = subprocess.Popen(cmd_1 + "&&" + cmd_2, stdout=subprocess.PIPE, shell=True)
-        p.wait()
-
-        cmd_3 = "git reset --hard" + p.stdout.read()
-        p = subprocess.Popen(cmd_3, stdout=subprocess.PIPE, shell=True)
-        p.wait()
-
+    bias_1_mis = ["ambari", "solr", "spark"]
+    bias_1_not_mis = ["ambari", "bigtop", "cassandra", "hbase", "hive", "solr", "spark", "sqoop", "tez", "zookeeper"]
+    for proj in bias_1_mis:
+        bug_report_path = os.path.join("../../data/Bias_1_misclassified", proj, "bugs.xml")
+        code_base_path = os.path.join("../../data/codebase", proj)
+        storage_path = os.path.join("./data/bias1_mis", proj)
+        if not os.path.exists(os.path.join(storage_path, "code/")):
+            os.makedirs(os.path.join(storage_path, "code/"))
+        
+        results = {}
         start_time = time.time()
-        print("read code files...")
-        code_data = mp_code_reader(code_base_path, os.path.join(storage_path, "code/"))
+        print("read bug reports...")
+        bug_data = bug_reader(bug_report_path, code_base_path)
         print("the time consuming is %f s" %(time.time() - start_time))
 
+        for bug_id, bug_rep in tqdm(bug_data.items()):
+            print("processing {} now...".format(bug_id))
+            cmd_1 = "cd " + code_base_path
+            cmd_2 = "git rev-list --all -n 1 --before=" + bug_data[bug_id]["fixdate"]
+
+            p = subprocess.Popen(cmd_1 + "&&" + cmd_2, stdout=subprocess.PIPE, shell=True)
+            p.wait()
+
+            cmd_3 = "git reset --hard " + p.stdout.read().decode().replace("\n", "")
+            p = subprocess.Popen(cmd_1 + "&&" + cmd_3, stdout=subprocess.PIPE, shell=True)
+            p.wait()
+
+            start_time = time.time()
+            print("read code files...")
+            code_data = mp_code_reader(code_base_path, os.path.join(storage_path, "code/"))
+            print("the time consuming is %f s" %(time.time() - start_time))
+
+            start_time = time.time()
+            print("compute similarities...")
+            result = compute_similarity(code_data, bug_data[bug_id])
+            results[bug_id] = {"results": result, "truth": [fp for fp in bug_data[bug_id]["fixed_files"]]}
+            print("the time consuming is %f s" %(time.time() - start_time))
+
+            evaluation(results, storage_path)
+        
+        with open(os.path.join(storage_path, "results.json"), "w") as f:
+            json.dump(results, f)
+
+    for proj in bias_1_not_mis:
+        bug_report_path = os.path.join("../../data/Bias_1_not_misclassified", proj, "bugs.xml")
+        code_base_path = os.path.join("../../data/codebase", proj)
+        storage_path = os.path.join("./data/bias1_not_mis", proj)
+        if not os.path.exists(os.path.join(storage_path, "code/")):
+            os.makedirs(os.path.join(storage_path, "code/"))
+        
+        results = {}
         start_time = time.time()
-        print("compute similarities...")
-        result = compute_similarity(code_data, bug_data[bug_id])
-        results[bug_id] = {"results": result, "truth": [fp for fp in bug_data[bug_id]["fixed_files"]]}
+        print("read bug reports...")
+        bug_data = bug_reader(bug_report_path, code_base_path)
         print("the time consuming is %f s" %(time.time() - start_time))
 
-        evaluation(results, storage_path)
-    
-    with open(os.path.join(storage_path, "results.json"), "w") as f:
-        json.dump(results, f)
+        for bug_id, bug_rep in tqdm(bug_data.items()):
+            print("processing {} now...".format(bug_id))
+            cmd_1 = "cd " + code_base_path
+            cmd_2 = "git rev-list --all -n 1 --before=" + bug_data[bug_id]["fixdate"]
+
+            p = subprocess.Popen(cmd_1 + "&&" + cmd_2, stdout=subprocess.PIPE, shell=True)
+            p.wait()
+
+            cmd_3 = "git reset --hard " + p.stdout.read().decode().replace("\n", "")
+            p = subprocess.Popen(cmd_1 + "&&" + cmd_3, stdout=subprocess.PIPE, shell=True)
+            p.wait()
+
+            start_time = time.time()
+            print("read code files...")
+            code_data = mp_code_reader(code_base_path, os.path.join(storage_path, "code/"))
+            print("the time consuming is %f s" %(time.time() - start_time))
+
+            start_time = time.time()
+            print("compute similarities...")
+            result = compute_similarity(code_data, bug_data[bug_id])
+            results[bug_id] = {"results": result, "truth": [fp for fp in bug_data[bug_id]["fixed_files"]]}
+            print("the time consuming is %f s" %(time.time() - start_time))
+
+            evaluation(results, storage_path)
+        
+        with open(os.path.join(storage_path, "results.json"), "w") as f:
+            json.dump(results, f)
 

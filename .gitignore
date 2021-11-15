@@ -130,4 +130,4 @@ dmypy.json
 
 data/Bias_1_misclassified
 data/Bias_1_not_misclassified
-tools/VSM/src/data
+tools/VSM/data
