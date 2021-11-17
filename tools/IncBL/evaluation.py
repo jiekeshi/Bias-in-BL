@@ -19,7 +19,7 @@ import copy
 
 # # bias_1_mis = ["ambari", "solr", "spark"]
 # bias_1_not_mis = ["ambari", "solr", "spark", "bigtop", "cassandra", "hbase", "hive", "sqoop", "tez", "zookeeper"]
-bias_1_not_mis = ["spark"]
+bias_1_not_mis = ["ambari"]
 import ast
 names = []
 truth = []

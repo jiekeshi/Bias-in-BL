@@ -72,7 +72,7 @@ def mp_code_reader(code_base_pathd, storage_path):
     while not q_to_store.empty():
         single_data = q_to_store.get()
         code_data.update(single_data)
-    print("Added finished")
+    print("Log: files added finished")
     
     with open(os.path.join(storage_path, "code_data.json"), "w") as f:
         json.dump(code_data, f)
@@ -186,6 +186,7 @@ def compute_similarity(text_data, bug_data, past_bugs):
             for cont in past_bugs[file]:
                 sim_bugs.append(cont)
                 fix_files.append(file)
+    # st_time = time.time()
 
     bug_dct = Dictionary(sim_bugs)
 
@@ -194,22 +195,28 @@ def compute_similarity(text_data, bug_data, past_bugs):
     bug_index = SparseMatrixSimilarity(bug_model[bug_vecs], num_features=len(bug_dct))
     
     bug_sims = {}
-    for fix_file, score in zip(fix_files, bug_index[bug_dct.doc2bow(bug_content)]):
+    print(len(text_content))
+    print(len(sim_bugs))
+    sims_score = bug_index[bug_dct.doc2bow(bug_content)]
+    for fix_file, score in zip(fix_files, sims_score):
         if fix_file in bug_sims.keys():
             bug_sims[fix_file].append(score)
         else:
             bug_sims[fix_file] = []
             bug_sims[fix_file].append(score)
-
-    for fp in bug_sims.keys():
-        if fp in file_names:
-            norm_sims[file_names.index(fp)] = norm_sims[file_names.index(fp)] * 0.8 + 0.2 * sum(bug_sims[fp])/len(bug_sims[fp])
     
-    sorted_files = sorted(range(len(norm_sims)), key=lambda k: norm_sims[k], reverse=True)
+    final_score = []
+    for sim, fn in zip(norm_sims, file_names):
+        if fn in bug_sims.keys():
+            final_score.append(0.8*sim+0.2 * sum(bug_sims[fn])/len(bug_sims[fn]))
+        else:
+            final_score.append(0.8*sim)
+
+    sorted_files = sorted(range(len(final_score)), key=lambda k: final_score[k], reverse=True)
     results = []
     for i in sorted_files:
         results.append(file_names[i])
-
+    
     return results
 
 def evaluation(results, storage_path):
@@ -265,55 +272,60 @@ if __name__ == "__main__":
 
     bias_1_mis = ["ambari", "solr", "spark"]
     bias_1_not_mis = ["ambari", "bigtop", "cassandra", "hbase", "hive", "solr", "spark", "sqoop", "tez", "zookeeper"]
-    for proj in bias_1_mis:
-        bug_report_path = os.path.join("../../data/Bias_1_misclassified", proj, "bugs.xml")
-        code_base_path = os.path.join("../../data/codebase", proj)
-        storage_path = os.path.join("./data/bias1_mis", proj)
-        if not os.path.exists(os.path.join(storage_path, "code/")):
-            os.makedirs(os.path.join(storage_path, "code/"))
+    # for proj in bias_1_mis:
+    #     bug_report_path = os.path.join("../../data/Bias_1_misclassified", proj, "bugs.xml")
+    #     code_base_path = os.path.join("../../data/codebase", proj)
+    #     storage_path = os.path.join("./data/bias1_mis", proj)
+    #     if not os.path.exists(os.path.join(storage_path, "code/")):
+    #         os.makedirs(os.path.join(storage_path, "code/"))
         
-        results = {}
-        start_time = time.time()
-        print("read bug reports...")
-        bug_data = bug_reader(bug_report_path, code_base_path)
-        print("the time consuming is %f s" %(time.time() - start_time))
-        past_bugs = {}
-        for bug_id, bug_rep in tqdm(bug_data.items()):
-            for id_ in bug_data.keys():
-                if id_ < bug_id:
-                    for file in bug_data[id_]["fixed_files"]:
-                        if file in past_bugs.keys():
-                            past_bugs[file].append(bug_data[id_]["content"])
-                        else:
-                            past_bugs[file] = []
-                            past_bugs[file].append(bug_data[id_]["content"])
+    #     results = {}
+    #     start_time = time.time()
+    #     print("read bug reports...")
+    #     bug_data = bug_reader(bug_report_path, code_base_path)
+    #     print("the time consuming is %f s" %(time.time() - start_time))
 
-            print("processing {} now...".format(bug_id))
-            cmd_1 = "cd " + code_base_path
-            cmd_2 = "git rev-list --all -n 1 --before=" + bug_data[bug_id]["fixdate"]
+    #     for bug_id, bug_rep in tqdm(bug_data.items()):
+    #         past_bugs = {}
+    #         for id_ in bug_data.keys():
+    #             if bug_data[id_]["fixdate"] < bug_data[bug_id]["fixdate"]:
+    #                 for file in bug_data[id_]["fixed_files"]:
+    #                     if file in past_bugs.keys():
+    #                         past_bugs[file].append(bug_data[id_]["content"])
+    #                     else:
+    #                         past_bugs[file] = []
+    #                         past_bugs[file].append(bug_data[id_]["content"])
+            
+    #         print("processing {} now...".format(bug_id))
+    #         cmd_1 = "cd " + code_base_path
+    #         cmd_2 = "git rev-list --all -n 1 --before=" + bug_data[bug_id]["fixdate"]
 
-            p = subprocess.Popen(cmd_1 + "&&" + cmd_2, stdout=subprocess.PIPE, shell=True)
-            p.wait()
+    #         p = subprocess.Popen(cmd_1 + "&&" + cmd_2, stdout=subprocess.PIPE, shell=True)
+    #         p.wait()
 
-            cmd_3 = "git reset --hard " + p.stdout.read().decode().replace("\n", "")
-            p = subprocess.Popen(cmd_1 + "&&" + cmd_3, stdout=subprocess.PIPE, shell=True)
-            p.wait()
+    #         cmd_3 = "git reset --hard " + p.stdout.read().decode().replace("\n", "")
+    #         p = subprocess.Popen(cmd_1 + "&&" + cmd_3, stdout=subprocess.PIPE, shell=True)
+    #         p.wait()
 
-            start_time = time.time()
-            print("read code files...")
-            code_data = mp_code_reader(code_base_path, os.path.join(storage_path, "code/"))
-            print("the time consuming is %f s" %(time.time() - start_time))
+    #         start_time = time.time()
+    #         print("read code files...")
+    #         code_data = mp_code_reader(code_base_path, os.path.join(storage_path, "code/"))
+    #         past_list = list(past_bugs.keys())
+    #         for file in past_list:
+    #             if not file in code_data.keys():
+    #                 del past_bugs[file]
+    #         print("the time consuming is %f s" %(time.time() - start_time))
 
-            start_time = time.time()
-            print("compute similarities...")
-            result = compute_similarity(code_data, bug_data[bug_id], past_bugs)
-            results[bug_id] = {"results": result, "truth": [fp for fp in bug_data[bug_id]["fixed_files"]]}
-            print("the time consuming is %f s" %(time.time() - start_time))
+    #         start_time = time.time()
+    #         print("compute similarities...")
+    #         result = compute_similarity(code_data, bug_data[bug_id], past_bugs)
+    #         results[bug_id] = {"results": result, "truth": [fp for fp in bug_data[bug_id]["fixed_files"]]}
+    #         print("the time consuming is %f s" %(time.time() - start_time))
 
-            evaluation(results, storage_path)
+    #         evaluation(results, storage_path)
         
-        with open(os.path.join(storage_path, "results.json"), "w") as f:
-            json.dump(results, f)
+    #     with open(os.path.join(storage_path, "results.json"), "w") as f:
+    #         json.dump(results, f)
 
     for proj in bias_1_not_mis:
         bug_report_path = os.path.join("../../data/Bias_1_not_misclassified", proj, "bugs.xml")
@@ -327,17 +339,18 @@ if __name__ == "__main__":
         print("read bug reports...")
         bug_data = bug_reader(bug_report_path, code_base_path)
         print("the time consuming is %f s" %(time.time() - start_time))
-        past_bugs = {}
+        
         for bug_id, bug_rep in tqdm(bug_data.items()):
+            past_bugs = {}
             for id_ in bug_data.keys():
-                if id_ < bug_id:
+                if bug_data[id_]["fixdate"] < bug_data[bug_id]["fixdate"]:
                     for file in bug_data[id_]["fixed_files"]:
                         if file in past_bugs.keys():
                             past_bugs[file].append(bug_data[id_]["content"])
                         else:
                             past_bugs[file] = []
                             past_bugs[file].append(bug_data[id_]["content"])
-
+            
             print("processing {} now...".format(bug_id))
             cmd_1 = "cd " + code_base_path
             cmd_2 = "git rev-list --all -n 1 --before=" + bug_data[bug_id]["fixdate"]
@@ -352,6 +365,10 @@ if __name__ == "__main__":
             start_time = time.time()
             print("read code files...")
             code_data = mp_code_reader(code_base_path, os.path.join(storage_path, "code/"))
+            past_list = list(past_bugs.keys())
+            for file in past_list:
+                if not file in code_data.keys():
+                    del past_bugs[file]
             print("the time consuming is %f s" %(time.time() - start_time))
 
             start_time = time.time()
