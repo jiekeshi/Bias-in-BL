@@ -11,114 +11,81 @@ from math import sqrt
 import copy
 
 
-# workbook = xlrd.open_workbook("../../data/Bias_2.xlsx")
-# names = workbook.sheet_names()
-# worksheet = workbook.sheet_by_index(0)
-# name = worksheet.col_values(0)[1:]
-# status = worksheet.col_values(3)[1:]
+workbook = xlrd.open_workbook("../../data/Bias_2.xlsx")
+names = workbook.sheet_names()
+worksheet = workbook.sheet_by_index(0)
+name = worksheet.col_values(0)[1:]
+status = worksheet.col_values(3)[1:]
 
 # # bias_1_mis = ["ambari", "solr", "spark"]
-# bias_1_not_mis = ["ambari", "solr", "spark", "bigtop", "cassandra", "hbase", "hive", "sqoop", "tez", "zookeeper"]
-bias_1_not_mis = ["ambari"]
-import ast
-names = []
-truth = []
+bias_1_not_mis = ["ambari", "solr", "spark", "bigtop", "cassandra", "hbase", "hive", "sqoop", "tez", "zookeeper"]
 
-# with open("../../data/Bias_3_clean_ground_truth.txt") as f:
-#     lines = f.readlines()
-#     for line in lines:
-#         names.append(line.split("\t")[0])
-#         tmp = []
-        
-#         truth.append(ast.literal_eval(line.split("\t")[-1]))
+
+n_aps = []
+f_aps = []
+p_aps = []
+f_id = []
+n_id = []
+p_id = []
+
+for n, s in zip(name, status):
+    if s == "Fully Localized":
+        f_id.append(n)
+    if s == "Not Localized":
+        n_id.append(n)
+    if s == "Partially Localized":
+        p_id.append(n)
 
 
 for proj in bias_1_not_mis:
     with open("./data/bias1_not_mis/" + proj + "/results.json") as f:
         predictions = json.load(f)
-    names = []
-    truth = []
-
-    with open("../../data/Bias_3_clean_ground_truth.txt") as f:
-        lines = f.readlines()
-        for line in lines:
-            names.append(line.split("\t")[0])
-            truth.append(ast.literal_eval(line.split("\t")[-1]))
-
-    print(proj)
+    
     ranks = []
-    n_aps = []
+    # f_aps = []
     
     for nam, pred in predictions.items():
-        if nam.split(".")[0] in names:
-            ground_truths = truth[names.index(nam.split(".")[0])]
+        if nam.split(".")[0] in f_id:
+            ground_truths = pred["truth"]
             for index, result in enumerate(pred["results"]):
                 temp = []
-                if result[len("../../data/codebase/"+proj+"/"):] in ground_truths:
-                    ranks.append(index + 1)
-                    file_nums = len(pred["results"])
-                    temp.append(1/(index + 1))
-                if not len(temp) == 0:
-                    n_aps.append(sum(temp)/len(temp))
-    print(mean(n_aps))
-
-    names = []
-    truth = []
-
-    with open("../../data/Bias_3_dirty_ground_truth.txt") as f:
-        lines = f.readlines()
-        for line in lines:
-            names.append(line.split("\t")[0])
-            truth.append(ast.literal_eval(line.split("\t")[-1]))
-
-    print(proj)
-    ranks = []
-    f_aps = []
-    
-    for nam, pred in predictions.items():
-        if nam.split(".")[0] in names:
-            ground_truths = truth[names.index(nam.split(".")[0])]
-            for index, result in enumerate(pred["results"]):
-                temp = []
-                if result[len("../../data/codebase/"+proj+"/"):] in ground_truths:
+                if result in ground_truths:
                     ranks.append(index + 1)
                     file_nums = len(pred["results"])
                     temp.append(1/(index + 1))
                 if not len(temp) == 0:
                     f_aps.append(sum(temp)/len(temp))
-    print(mean(f_aps))
     
 
-    # ranks = []
-    # f_aps = []
-    
-    # for nam, pred in predictions.items():
-    #     if nam.split(".")[0] in f_id:
-    #         ground_truths = pred["truth"]
-    #         for index, result in enumerate(pred["results"]):
-    #             temp = []
-    #             if result in ground_truths:
-    #                 ranks.append(index + 1)
-    #                 file_nums = len(pred["results"])
-    #                 temp.append(1/(index + 1))
-    #             if not len(temp) == 0:
-    #                 f_aps.append(sum(temp)/len(temp))
-    
-
-    # ranks = []
+    ranks = []
     # p_aps = []
     
-    # for nam, pred in predictions.items():
-    #     if nam.split(".")[0] in p_id:
-    #         ground_truths = pred["truth"]
-    #         for index, result in enumerate(pred["results"]):
-    #             temp = []
-    #             if result in ground_truths:
-    #                 ranks.append(index + 1)
-    #                 file_nums = len(pred["results"])
-    #                 temp.append(1/(index + 1))
-    #             if not len(temp) == 0:
-    #                 p_aps.append(sum(temp)/len(temp))
+    for nam, pred in predictions.items():
+        if nam.split(".")[0] in p_id:
+            ground_truths = pred["truth"]
+            for index, result in enumerate(pred["results"]):
+                temp = []
+                if result in ground_truths:
+                    ranks.append(index + 1)
+                    file_nums = len(pred["results"])
+                    temp.append(1/(index + 1))
+                if not len(temp) == 0:
+                    p_aps.append(sum(temp)/len(temp))
+    
+    ranks = []
+    # p_aps = []
+    
+    for nam, pred in predictions.items():
+        if nam.split(".")[0] in n_id:
+            ground_truths = pred["truth"]
+            for index, result in enumerate(pred["results"]):
+                temp = []
+                if result in ground_truths:
+                    ranks.append(index + 1)
+                    file_nums = len(pred["results"])
+                    temp.append(1/(index + 1))
+                if not len(temp) == 0:
+                    n_aps.append(sum(temp)/len(temp))
     
 
     # # hit_1 = 0
@@ -164,33 +131,55 @@ for proj in bias_1_not_mis:
 
     # n_map = aps
 
-    # # function to calculate Cohen's d for independent samples
-    def cohend(d1, d2):
-        # calculate the size of samples
-        n1, n2 = len(d1), len(d2)
-        print(n2, n1)
-        # calculate the variance of the samples
-        s1, s2 = var(d1, ddof=0), var(d2, ddof=0)
-        # calculate the pooled standard deviation
-        s = sqrt(((n1 - 1) * s1 + (n2 - 1) * s2) / (n1 + n2 - 2))
+    # # # function to calculate Cohen's d for independent samples
+    # def cohend(d1, d2):
+    #     # calculate the size of samples
+    #     n1, n2 = len(d1), len(d2)
+    #     print(n2, n1)
+    #     # calculate the variance of the samples
+    #     s1, s2 = var(d1, ddof=0), var(d2, ddof=0)
+    #     # calculate the pooled standard deviation
+    #     s = sqrt(((n1 - 1) * s1 + (n2 - 1) * s2) / (n1 + n2 - 2))
         
-        # calculate the means of the samples
-        u1, u2 = mean(d1), mean(d2)
-        print(u2, u1)
-        # calculate the effect size
-        return (u2 - u1) / s
+    #     # calculate the means of the samples
+    #     u1, u2 = mean(d1), mean(d2)
+    #     print(u2, u1)
+    #     # calculate the effect size
+    #     return (u2 - u1) / s
 
-    # seed random number generator
-    seed(1)
-    # prepare data
-    data1 = f_aps
-    data2 = n_aps
-    # calculate cohen's d
-    d = cohend(data1, data2)
-    print('Cohens d: %.10f' % d)
+    # # seed random number generator
+    # seed(1)
+    # # prepare data
+    # data1 = f_aps
+    # data2 = n_aps
+    # # calculate cohen's d
+    # d = cohend(data1, data2)
+    # print('Cohens d: %.10f' % d)
     # U1, p = mannwhitneyu(data1, data2)
     # print(p)
+
+def cohend(d1, d2):
+    # calculate the size of samples
+    n1, n2 = len(d1), len(d2)
+    print(n2, n1)
+    # calculate the variance of the samples
+    s1, s2 = var(d1, ddof=0), var(d2, ddof=0)
+    # calculate the pooled standard deviation
+    s = sqrt(((n1 - 1) * s1 + (n2 - 1) * s2) / (n1 + n2 - 2))
     
+    # calculate the means of the samples
+    u1, u2 = mean(d1), mean(d2)
+    print(u2, u1)
+    # calculate the effect size
+    return (u2 - u1) / s
+
+print(cohend(f_aps, p_aps), cohend(p_aps, n_aps), cohend(f_aps, n_aps))
+U1, p = mannwhitneyu(f_aps, p_aps)
+print(p)
+U1, p = mannwhitneyu(p_aps, n_aps)
+print(p) 
+U1, p = mannwhitneyu(f_aps, n_aps)
+print(p) 
 
 
 
